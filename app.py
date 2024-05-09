@@ -1,14 +1,11 @@
-from flask import Flask, render_template, request, session, redirect, url_for
+from flask import Flask, flash, redirect, render_template, request, session, url_for
 import sqlite3
 import requests
-from data_base import create_table_users
-
 
 
 app = Flask(__name__)
 app.secret_key = '123'
 
-create_table_users()
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -23,10 +20,9 @@ def register():
         conn.close()
 
         if existing_user:
-            error_message = "Пользователь с таким адресом электронной почты уже существует."
+            error_message = "A user with this username already exists."
             return render_template('register.html', error_message=error_message)
         else:
-            # Если пользователь с таким адресом электронной почты не существует, добавляем его в базу данных
             conn = sqlite3.connect('recipes.db')
             c = conn.cursor()
             c.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, password))
@@ -35,7 +31,6 @@ def register():
             return redirect(url_for('login'))
 
     return render_template('register.html')
-
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -50,27 +45,24 @@ def login():
         conn.close()
         if user:
             session['username'] = username
-            return redirect(url_for('profile'))
+            flash('You logged in as {}'.format(username), 'success')
+            return redirect(url_for('main_page'))
         else:
-            return 'Invalid username or password'
+            flash('Invalid username or password', 'error')
+            return redirect(url_for('login'))
     return render_template('login.html')
 
-@app.route('/profile')
-def profile():
-    if 'username' in session:
-        return f'Logged in as {session["username"]}'
-    return redirect(url_for('login'))
+#@app.route('/profile')
+#def profile():
+#    if 'username' in session:
+#        return f'Logged in as {session["username"]}'
+#    return redirect(url_for('login'))
 
-# Выход пользователя
+
 @app.route('/logout')
 def logout():
     session.pop('username', None)
-    return redirect(url_for('login'))
-
-
-@app.route('/breakfast')
-def breakfast():
-    return render_template('breakfast.html')
+    return redirect(url_for('main_page'))
 
 
 def get_recipes():
@@ -79,21 +71,18 @@ def get_recipes():
         query = f'/search?q={query}'
     url = f'https://dummyjson.com/recipes{query}'
     response = requests.get(url)
-    print("get_recipes")
-    print(response)
+
     if response.status_code == 200:
         data = response.json()
         return data['recipes']
     else:
-        print('Ошибка при получении рецептов:', response.status_code)
+        print('error', response.status_code)
         return None
 
 
 @app.route('/main_page')
 def main_page():
-    print("main_page")
     recipes = get_recipes()
-
     return render_template('main_page.html', recipes=recipes)
 
 
